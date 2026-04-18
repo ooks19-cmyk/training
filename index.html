@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>축구선수 키우기 (Sound & 3D Ver.)</title>
+    <title>축구선수 키우기 (Masterpiece Ver.)</title>
     
-    <!-- Three.js (3D 엔진) & GSAP (애니메이션 엔진) -->
+    <!-- Three.js & GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <style>
-        /* 90년대 고전 게임 폰트 (둥근모꼴) 적용 */
         @font-face {
             font-family: 'DungGeunMo';
             src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff') format('woff');
@@ -20,14 +19,17 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'DungGeunMo', 'Courier New', monospace; }
         body { background-color: #000; color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; }
         
+        /* 상단 50% 게임 영역 (절대 침범 불가 영역) */
         #game-container {
             height: 50vh; position: relative; width: 100%;
             border-bottom: 6px solid #fff; background-color: #87CEEB;
-            overflow: hidden;
+            overflow: hidden; flex-shrink: 0;
         }
 
         #three-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #particle-overlay { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 15; }
 
+        /* 상단 UI (선수정보, 스탯) */
         #top-ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; padding: 5px;
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
@@ -38,12 +40,13 @@
             box-shadow: 2px 2px 0px #000; padding: 5px; pointer-events: auto;
         }
 
-        #player-custom-name { font-size: 14px; font-weight: bold; color: #FFD700; margin-bottom: 2px; text-shadow: 1px 1px 0px #000; }
+        #player-custom-name { font-size: 13px; font-weight: bold; color: #FFD700; margin-bottom: 2px; text-shadow: 1px 1px 0px #000; }
         #team-name { font-size: 10px; color: #fff; }
         #right-panel { width: 100px; }
         .stat-line { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
         .stat-val { color: #00FF00; }
 
+        /* 하단 입력 퀴즈창 (상단 50% 영역의 맨 아랫부분) */
         #quiz-ui-layer {
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: rgba(0, 0, 0, 0.85); border-top: 3px solid #fff;
@@ -60,12 +63,29 @@
         
         #exp-container { width: 90%; height: 10px; background: #000; margin-top: 5px; border: 1px solid #555; }
         #exp-bar { height: 100%; width: 0%; background: #FFD700; transition: width 0.2s; }
+        #reset-btn { position: absolute; bottom: 5px; right: 5px; background: #D32F2F; color: #fff; border: 2px solid #fff; padding: 3px 6px; font-size: 10px; z-index: 20; cursor: pointer; }
 
-        #empty-cushion { height: 50vh; background: #111; display: flex; justify-content: center; align-items: center; color: #333; font-size: 12px;}
+        /* 하단 50% 기록실 (명예의 전당) - 키보드에 가려져도 되는 영역 */
+        #records-cushion { 
+            height: 50vh; background: #111; padding: 15px; 
+            display: flex; flex-direction: column; align-items: center;
+            border-top: 2px solid #333;
+        }
+        
+        .record-title { color: #FFD700; font-size: 18px; margin-bottom: 10px; text-shadow: 2px 2px 0px #000; border-bottom: 2px dashed #555; padding-bottom: 5px;}
+        .record-board {
+            width: 90%; max-width: 400px; background: #222; border: 2px solid #555; padding: 15px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; box-shadow: inset 4px 4px 0px #000;
+        }
+        .record-item { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; border: 1px solid #444; padding: 8px; }
+        .record-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
+        .record-value { font-size: 18px; color: #00FF00; font-weight: bold; }
+        .role-badge { margin-top: 10px; background: #000080; color: #fff; padding: 5px 15px; border: 2px solid #FFD700; font-size: 14px; border-radius: 20px;}
 
+        /* 모달 스타일 */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; padding: 10px;
+            background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; padding: 10px;
         }
         .modal-content {
             background: #0000AA; border: 4px solid #fff; padding: 15px;
@@ -82,14 +102,23 @@
         }
         .btn:active { transform: translate(3px, 3px); box-shadow: 0px 0px 0px; }
         
-        #reset-btn { position: absolute; bottom: 5px; right: 5px; background: #D32F2F; color: #fff; border: 2px solid #fff; padding: 3px 6px; font-size: 10px; z-index: 20; cursor: pointer; }
-        
-        #particle-overlay { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 15; }
-        .worldcup-title { color: #FFD700; font-size: 24px; text-shadow: 3px 3px 0px #FF0000; margin-bottom: 10px;}
+        /* 텍스트 중계창 특화 스타일 */
+        #commentary-box {
+            background: #000; border: 2px solid #fff; padding: 15px;
+            height: 150px; overflow-y: auto; text-align: left; font-size: 13px; line-height: 1.6;
+            margin-bottom: 15px; box-shadow: inset 4px 4px 0px #222;
+        }
+        .comment-line { margin-bottom: 8px; opacity: 0; transform: translateY(10px); animation: slideUp 0.3s forwards; }
+        .comment-highlight { color: #FFD700; font-weight: bold; }
+        .comment-goal { color: #00FF00; font-size: 16px; font-weight: bold; text-shadow: 1px 1px 0px #000; }
+        .comment-fail { color: #FF4444; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
     </style>
 </head>
 <body>
 
+    <!-- [상단 50%] 게임 영역 -->
     <div id="game-container">
         <div id="three-canvas-container"></div>
         <canvas id="particle-overlay"></canvas>
@@ -120,7 +149,29 @@
         </div>
     </div>
 
-    <div id="empty-cushion">[키보드 안전 영역]</div>
+    <!-- [하단 50%] 명예의 전당 (키보드 쿠션) -->
+    <div id="records-cushion">
+        <div class="record-title">👑 명예의 전당 👑</div>
+        <div class="record-board">
+            <div class="record-item">
+                <div class="record-label">월드컵 출전</div>
+                <div class="record-value" id="rec-caps">0</div>
+            </div>
+            <div class="record-item">
+                <div class="record-label">월드컵 우승 🏆</div>
+                <div class="record-value" id="rec-wins" style="color:#FFD700;">0</div>
+            </div>
+            <div class="record-item">
+                <div class="record-label">통산 득점 ⚽</div>
+                <div class="record-value" id="rec-goals">0</div>
+            </div>
+            <div class="record-item">
+                <div class="record-label">통산 도움 👟</div>
+                <div class="record-value" id="rec-assists">0</div>
+            </div>
+        </div>
+        <div class="role-badge" id="role-badge">포지션: 신인 선수</div>
+    </div>
 
     <!-- 모달 창들 -->
     <div id="start-modal" class="modal">
@@ -129,36 +180,42 @@
             <div style="background: rgba(0,0,0,0.5); padding: 10px; border: 1px dashed #FFD700; margin-bottom: 15px; font-size: 11px; text-align: left; line-height: 1.4;">
                 <div style="color: #00FF00; font-weight: bold; text-align: center; margin-bottom: 5px;">"구구단을 풀어서 국가대표가 되자!"</div>
                 <div>▶ 5문제 정답 시 1레벨 UP!</div>
-                <div>▶ Lv.5~20: 국내 리그 정복 (K4~K1)</div>
-                <div>▶ Lv.30: 이탈리아 세리에 A</div>
-                <div>▶ Lv.35: 독일 분데스리가 (선배들의 멘토링!)</div>
-                <div>▶ Lv.40: 프랑스 리그 1</div>
-                <div>▶ Lv.45: 잉글랜드 프리미어 리그</div>
-                <div>▶ Lv.50: 국가대표 발탁!</div>
-                <div style="color: #FFA500;">▶ Lv.55 부터 매 5레벨마다 월드컵 개최! 🏆</div>
+                <div>▶ Lv.5~20: 국내 리그 정복</div>
+                <div>▶ Lv.30~45: 유럽 빅리그 & 선배 멘토링</div>
+                <div style="color: #FFA500;">▶ Lv.55~: 매 5레벨마다 월드컵 생중계! 🏆</div>
+                <div style="color: #FF8C00; font-weight:bold; margin-top:5px;">▶ Lv.100~: 은퇴 후 지도자(감독) 데뷔! 👔</div>
             </div>
-            <p>등번호와 이름을 입력하라!</p>
             <div style="display:flex; gap:5px; margin-bottom:10px;">
-                <input type="number" id="input-backnumber" placeholder="번호(예:7)" inputmode="numeric" style="width:40%;">
+                <input type="number" id="input-backnumber" placeholder="등번호(7)" inputmode="numeric" style="width:40%;">
                 <input type="text" id="input-playername" placeholder="이름(예:손흥민)" style="width:60%;">
             </div>
-            <button class="btn" onclick="startGameWithInfo()" style="width:100%;">입단하기</button>
+            <button class="btn" onclick="startGameWithInfo()" style="width:100%;">축구 인생 시작</button>
         </div>
     </div>
 
+    <!-- 롤 변경 알림 모달 -->
+    <div id="role-modal" class="modal">
+        <div class="modal-content">
+            <h2>👔 새로운 지도자 여정 👔</h2>
+            <p id="role-message" style="font-size: 14px; color: #00FF00; font-weight: bold;"></p>
+            <button class="btn" onclick="closeRoleModal()">확인</button>
+        </div>
+    </div>
+
+    <!-- 이벤트 모달 -->
     <div id="event-modal" class="modal">
         <div class="modal-content">
-            <h2>🔥 스페셜 멘토링 🔥</h2>
+            <h2>🔥 멘토링 특훈 🔥</h2>
             <p id="event-message" style="font-size: 14px; color: #FFA500; font-weight: bold;"></p>
             <p id="event-reward" style="color: #00FF00; margin-top: 10px; font-size: 16px;"></p>
-            <button class="btn" onclick="closeEventModal()">감사합니다!</button>
+            <button class="btn" onclick="closeEventModal()">훈련 재개!</button>
         </div>
     </div>
 
     <div id="stat-modal" class="modal">
         <div class="modal-content">
             <h2>🎉 LEVEL UP! 🎉</h2>
-            <p>스탯 포인트 투자 (남은 PT: <span id="stat-points-display" style="color:#00FF00;"></span>)</p>
+            <p>스탯 투자 (남은 PT: <span id="stat-points-display" style="color:#00FF00;"></span>)</p>
             <div class="btn-group">
                 <button class="btn" onclick="upgradeStat('shoot')">슈팅 UP</button>
                 <button class="btn" onclick="upgradeStat('pass')">패스 UP</button>
@@ -171,241 +228,204 @@
     <div id="league-modal" class="modal">
         <div class="modal-content">
             <h2 id="league-modal-title">상위 리그 진출!</h2>
-            <p>새로운 팀과 계약하십시오.</p>
+            <p id="league-modal-desc">새로운 팀을 선택하십시오.</p>
             <div class="btn-group" id="team-selection-group"></div>
         </div>
     </div>
 
     <div id="worldcup-start-modal" class="modal">
         <div class="modal-content">
-            <h2 class="worldcup-title">🌍 월드컵 개최 🌍</h2>
-            <p>국가대표로 출전합니다!<br>희망하는 포지션을 선택하세요.</p>
+            <h2 style="color: #FFD700; text-shadow: 2px 2px 0px #FF0000;">🌍 월드컵 개막 🌍</h2>
+            <p>국가대표 출전! 포지션을 선택하세요.</p>
             <div class="btn-group">
-                <button class="btn" onclick="playWorldCup('FW')">공격수 (FW)<br><span style="font-size:8px;color:#aaa;">슈팅, 스피드 중시</span></button>
-                <button class="btn" onclick="playWorldCup('MF')">미드필더 (MF)<br><span style="font-size:8px;color:#aaa;">패스, 피지컬 중시</span></button>
-                <button class="btn" onclick="playWorldCup('DF')">수비수 (DF)<br><span style="font-size:8px;color:#aaa;">피지컬, 스피드 중시</span></button>
+                <button class="btn" onclick="startWorldCupSimulation('FW')">FW (공격수)</button>
+                <button class="btn" onclick="startWorldCupSimulation('MF')">MF (미드필더)</button>
+                <button class="btn" onclick="startWorldCupSimulation('DF')">DF (수비수)</button>
             </div>
         </div>
     </div>
 
-    <div id="worldcup-result-modal" class="modal">
+    <!-- 월드컵 텍스트 중계 창 -->
+    <div id="worldcup-commentary-modal" class="modal">
         <div class="modal-content">
-            <h2 class="worldcup-title" id="wc-result-title">결과 발표</h2>
-            <p id="wc-result-desc" style="font-size:16px; margin-bottom:20px;"></p>
-            <div id="wc-trophy-emoji" style="font-size: 50px; display: none; margin-bottom:10px;">🏆</div>
-            <button class="btn" onclick="closeWorldCupResult()">다음 훈련으로</button>
+            <h2 style="color: #FFD700;">📺 월드컵 생중계</h2>
+            <div id="commentary-box"></div>
+            <button class="btn" id="commentary-close-btn" style="display:none; width:100%;" onclick="closeWorldCupResult()">경기 종료</button>
         </div>
     </div>
 
     <div id="cheat-modal" class="modal">
         <div class="modal-content">
-            <h2>🛠️ SYSTEM OVERRIDE 🛠️</h2>
-            <p>워프할 레벨을 입력하라.</p>
+            <h2>🛠️ 디버그: 레벨 워프 🛠️</h2>
             <input type="number" id="cheat-level-input" inputmode="numeric">
             <div class="btn-group">
-                <button class="btn" onclick="applyCheatLevel()">WARP</button>
-                <button class="btn" onclick="closeCheatModal()">CANCEL</button>
+                <button class="btn" onclick="applyCheatLevel()">이동</button>
+                <button class="btn" onclick="closeCheatModal()">취소</button>
             </div>
         </div>
     </div>
-
+    
     <div id="reset-modal" class="modal">
         <div class="modal-content">
-            <h2 style="color:#ff4444;">⚠️ WARNING ⚠️</h2>
-            <p>모든 데이터가 소거됩니다. 진행하시겠습니까?</p>
+            <h2 style="color:#ff4444;">⚠️ 데이터 초기화</h2>
+            <p>진짜로 처음부터 다시 하시겠습니까?</p>
             <div class="btn-group">
-                <button class="btn" style="color:#ff4444; border-color:#ff4444;" onclick="executeReset()">DELETE</button>
-                <button class="btn" onclick="closeResetModal()">CANCEL</button>
+                <button class="btn" style="color:#ff4444; border-color:#ff4444;" onclick="executeReset()">초기화</button>
+                <button class="btn" onclick="closeResetModal()">취소</button>
             </div>
         </div>
     </div>
 
     <script>
         /* =========================================
-           0. 8비트 레트로 사운드 엔진 (오프라인 지원)
+           0. 8비트 사운드 엔진
         ========================================= */
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
         const SoundEngine = {
-            init: function() {
-                if (!audioCtx) audioCtx = new AudioContext();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-            },
-            playTone: function(freq, type, duration, vol=0.1, slideFreq=null) {
-                if (!audioCtx) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
+            init: function() { if (!audioCtx) audioCtx = new AudioContext(); if (audioCtx.state === 'suspended') audioCtx.resume(); },
+            playTone: function(freq, type, duration, vol=0.1, slide=null) {
+                if (!audioCtx) return; const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = type; osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                if(slideFreq) {
-                    osc.frequency.exponentialRampToValueAtTime(slideFreq, audioCtx.currentTime + duration);
-                }
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
+                if(slide) osc.frequency.exponentialRampToValueAtTime(slide, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
             },
-            playKick: function() { // 정답 & 슛 (퍽!)
-                this.playTone(150, 'triangle', 0.2, 0.5, 30);
+            playKick: function() { this.playTone(150, 'triangle', 0.2, 0.5, 30); },
+            playWrong: function() { this.playTone(100, 'sawtooth', 0.3, 0.3, 50); },
+            playLevelUp: function() { [400,500,600,800].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.1, 0.1), i*100)); },
+            playWhistle: function() { this.playTone(1200, 'sine', 0.4, 0.2); setTimeout(()=>this.playTone(1200, 'sine', 0.6, 0.2), 500); },
+            playGoalNet: function() {
+                if (!audioCtx) return; const bufferSize = audioCtx.sampleRate * 0.2; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 800;
+                const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.4, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start();
             },
-            playWrong: function() { // 오답 (띡!)
-                this.playTone(100, 'sawtooth', 0.3, 0.3, 50);
-            },
-            playLevelUp: function() { // 레벨업 (띠리링)
-                setTimeout(() => this.playTone(400, 'square', 0.1, 0.1), 0);
-                setTimeout(() => this.playTone(500, 'square', 0.1, 0.1), 100);
-                setTimeout(() => this.playTone(600, 'square', 0.2, 0.1), 200);
-                setTimeout(() => this.playTone(800, 'square', 0.3, 0.1), 300);
-            },
-            playGoal: function() { // 골망 출렁이는 노이즈
-                if (!audioCtx) return;
-                const bufferSize = audioCtx.sampleRate * 0.2;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = buffer;
-                const filter = audioCtx.createBiquadFilter();
-                filter.type = 'lowpass'; filter.frequency.value = 1000;
-                const gain = audioCtx.createGain();
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-                noise.start();
-            },
-            playVictory: function() { // 월드컵 우승 빰빠바밤!
-                setTimeout(() => this.playTone(440, 'square', 0.2, 0.2), 0);
-                setTimeout(() => this.playTone(440, 'square', 0.2, 0.2), 200);
-                setTimeout(() => this.playTone(440, 'square', 0.2, 0.2), 400);
-                setTimeout(() => this.playTone(587, 'square', 0.6, 0.2), 600);
-            }
+            playVictory: function() { [440,440,440].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.2, 0.2), i*200)); setTimeout(() => this.playTone(587, 'square', 0.6, 0.2), 600); }
         };
-
-        // 사용자 상호작용 시 사운드 엔진 활성화 (브라우저 정책)
         document.addEventListener('click', () => SoundEngine.init(), { once: true });
         document.addEventListener('touchstart', () => SoundEngine.init(), { once: true });
 
-
         /* =========================================
-           1. 게임 데이터
+           1. 게임 데이터 (기록실 추가)
         ========================================= */
         let gameData = {
             playerName: "", backNumber: 7, level: 1, exp: 0,
             stats: { shoot: 5, pass: 5, speed: 5, physical: 5 },
             statPoints: 0, leagueName: "AMATEUR", teamName: "동네축구단",
-            uniform: { top: "#ffffff", bottom: "#000000", font: "#000000" }
+            uniform: { top: "#ffffff", bottom: "#000000", font: "#000000" },
+            records: { wcCaps: 0, wcWins: 0, wcGoals: 0, wcAssists: 0 }
         };
 
-        const leagueData = {
+        const baseLeagueData = {
             5: { name: "K4 LEAGUE", teams: [ { name: "세종 SA", top: "#E3001B", bottom: "#000000" }, { name: "거제시민", top: "#004B87", bottom: "#ffffff" }, { name: "전북모터스N", top: "#00A651", bottom: "#000000" } ] },
             10: { name: "K3 LEAGUE", teams: [ { name: "울산시민", top: "#87CEFA", bottom: "#ffffff" }, { name: "경주한수원", top: "#008000", bottom: "#ffffff" }, { name: "대전코레일", top: "#000080", bottom: "#ffffff" } ] },
             15: { name: "K-LEAGUE 2", teams: [ { name: "수원삼성", top: "#0000CD", bottom: "#0000CD" }, { name: "대구FC", top: "#87CEFA", bottom: "#000000" }, { name: "수원FC", top: "#B22222", bottom: "#000080" } ] },
             20: { name: "K-LEAGUE 1", teams: [ { name: "전북현대", top: "#00A651", bottom: "#000000" }, { name: "포항스틸러스", top: "#B22222", bottom: "#000000" }, { name: "울산현대", top: "#0000CD", bottom: "#0000CD" } ] },
             30: { name: "이탈리아 세리에 A", teams: [ { name: "나폴리", top: "#87CEFA", bottom: "#ffffff" }, { name: "인터밀란", top: "#0000CD", bottom: "#000000" }, { name: "AS로마", top: "#800000", bottom: "#FF8C00" } ]},
             35: { name: "독일 분데스리가", teams: [ 
-                { name: "바이에른 뮌헨", top: "#DC143C", bottom: "#ffffff", event: {stat:"physical", amt:10, msg:"괴물 수비수 김민재의 지옥의 피지컬 트레이닝!"} },
-                { name: "마인츠", top: "#FF0000", bottom: "#ffffff", event: {stat:"shoot", amt:10, msg:"마인츠의 심장 이재성의 날카로운 슛 지도!"} },
+                { name: "바이에른 뮌헨", top: "#DC143C", bottom: "#ffffff", event: {stat:"physical", amt:10, msg:"괴물 수비수 김민재의 피지컬 트레이닝!"} },
+                { name: "마인츠", top: "#FF0000", bottom: "#ffffff", event: {stat:"shoot", amt:10, msg:"이재성의 날카로운 슛 지도!"} },
                 { name: "슈투트가르트", top: "#ffffff", bottom: "#FF0000", event: {stat:"pass", amt:10, msg:"정우영의 빠르고 정확한 패스 전수!"} }
             ]},
             40: { name: "프랑스 리그 1", teams: [ 
-                { name: "파리 생제르맹", top: "#000080", bottom: "#000080", event: {stat:"pass", amt:10, msg:"파리의 마에스트로 이강인의 킬패스 마스터 클래스!"} }, 
+                { name: "파리 생제르맹", top: "#000080", bottom: "#000080", event: {stat:"pass", amt:10, msg:"이강인의 킬패스 마스터 클래스!"} }, 
                 { name: "FC낭트", top: "#FFD700", bottom: "#008000" }, 
                 { name: "리옹", top: "#ffffff", bottom: "#ffffff" } 
             ]},
             45: { name: "잉글랜드 프리미어 리그", teams: [ 
-                { name: "토트넘", top: "#ffffff", bottom: "#000080", event: {stat:"shoot", amt:10, msg:"레전드 캡틴 손흥민의 찰칵 세리머니 특강!"} },
+                { name: "토트넘", top: "#ffffff", bottom: "#000080", event: {stat:"shoot", amt:10, msg:"레전드 손흥민의 슈팅 특강!"} },
                 { name: "울버햄프턴", top: "#FFA500", bottom: "#000000", event: {stat:"shoot", amt:5, msg:"황소 황희찬의 저돌적인 슈팅 훈련!"} },
-                { name: "맨체스터 유나이티드", top: "#FF0000", bottom: "#ffffff", event: {stat:"speed", amt:10, msg:"두 개의 심장 박지성의 공간 창출 훈련!"} }
+                { name: "맨체스터 유나이티드", top: "#FF0000", bottom: "#ffffff", event: {stat:"speed", amt:10, msg:"박지성의 공간 창출 훈련!"} }
             ]},
-            50: { name: "대한민국 국가대표", teams: [ { name: "KOREA REP.", top: "#FF0000", bottom: "#000000", event: {stat:"physical", amt:5, msg:"자랑스러운 태극마크! 국대 체력 훈련!"} } ]}
+            50: { name: "대한민국 국가대표", teams: [ { name: "KOREA REP.", top: "#FF0000", bottom: "#000000", event: {stat:"physical", amt:5, msg:"국가대표 발탁! 체력 훈련!"} } ]}
         };
 
         let currentQuiz = { a: 0, b: 0, answer: 0 };
         let cheatClickCount = 0; let cheatClickTimer = null;
 
+        // 직책 판별 함수
+        function getCoachRole(lvl) {
+            if (lvl >= 140) return "감독";
+            if (lvl >= 130) return "수석 코치";
+            if (lvl >= 120) return "전술 코치";
+            if (lvl >= 110) return "슈팅 코치";
+            if (lvl >= 100) return "피지컬 트레이너";
+            return "선수";
+        }
+
         /* =========================================
-           2. Three.js 3D 엔진 셋업
+           2. 3D 엔진 (코치 모델 추가)
         ========================================= */
-        let scene, camera, renderer, playerGroup, rLegPivot, lLegPivot, ball, topMat, bottomMat;
+        let scene, camera, renderer, playerGroup, rLegPivot, ball, topMat, bottomMat, coachGroup;
 
         function init3D() {
             const container = document.getElementById('three-canvas-container');
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB); 
-            scene.fog = new THREE.Fog(0x87CEEB, 20, 50);
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB); scene.fog = new THREE.Fog(0x87CEEB, 20, 50);
 
             camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(0, 5, 14);
-            camera.lookAt(0, -2, -10);
+            camera.position.set(0, 5, 14); camera.lookAt(0, -2, -10);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            container.appendChild(renderer.domElement);
+            renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; container.appendChild(renderer.domElement);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(10, 20, 10);
-            dirLight.castShadow = true;
-            dirLight.shadow.camera.top = 20; dirLight.shadow.camera.bottom = -20;
-            dirLight.shadow.camera.left = -20; dirLight.shadow.camera.right = 20;
-            scene.add(dirLight);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); dirLight.castShadow = true;
+            dirLight.shadow.camera.top = 20; dirLight.shadow.camera.bottom = -20; dirLight.shadow.camera.left = -20; dirLight.shadow.camera.right = 20; scene.add(dirLight);
 
             const fieldMat = new THREE.MeshLambertMaterial({ color: 0x2E8B57 });
-            const field = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), fieldMat);
-            field.rotation.x = -Math.PI / 2; field.receiveShadow = true; scene.add(field);
-
-            const line = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
-            line.rotation.x = -Math.PI / 2; line.position.set(0, 0.01, -12); scene.add(line);
-            
-            const innerGrass = new THREE.Mesh(new THREE.PlaneGeometry(15.5, 7.5), fieldMat);
-            innerGrass.rotation.x = -Math.PI / 2; innerGrass.position.set(0, 0.02, -12); innerGrass.receiveShadow = true; scene.add(innerGrass);
+            const field = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), fieldMat); field.rotation.x = -Math.PI / 2; field.receiveShadow = true; scene.add(field);
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })); line.rotation.x = -Math.PI / 2; line.position.set(0, 0.01, -12); scene.add(line);
+            const innerGrass = new THREE.Mesh(new THREE.PlaneGeometry(15.5, 7.5), fieldMat); innerGrass.rotation.x = -Math.PI / 2; innerGrass.position.set(0, 0.02, -12); innerGrass.receiveShadow = true; scene.add(innerGrass);
 
             const postMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-            const postGeo = new THREE.CylinderGeometry(0.15, 0.15, 4);
-            const leftPost = new THREE.Mesh(postGeo, postMat); leftPost.position.set(-4, 2, -16); leftPost.castShadow = true;
-            const rightPost = new THREE.Mesh(postGeo, postMat); rightPost.position.set(4, 2, -16); rightPost.castShadow = true;
-            const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8.3), postMat);
-            crossbar.rotation.z = Math.PI / 2; crossbar.position.set(0, 4, -16); crossbar.castShadow = true;
-            scene.add(leftPost, rightPost, crossbar);
+            const leftPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4), postMat); leftPost.position.set(-4, 2, -16); leftPost.castShadow = true;
+            const rightPost = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4), postMat); rightPost.position.set(4, 2, -16); rightPost.castShadow = true;
+            const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8.3), postMat); crossbar.rotation.z = Math.PI / 2; crossbar.position.set(0, 4, -16); crossbar.castShadow = true; scene.add(leftPost, rightPost, crossbar);
 
-            playerGroup = new THREE.Group();
-            playerGroup.position.set(0, 0, 0);
-
+            // [플레이어 모델]
+            playerGroup = new THREE.Group(); playerGroup.position.set(0, 0, 0);
             const skinMat = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
-            topMat = new THREE.MeshLambertMaterial({ color: parseInt(gameData.uniform.top.replace('#', '0x')) });
-            bottomMat = new THREE.MeshLambertMaterial({ color: parseInt(gameData.uniform.bottom.replace('#', '0x')) });
+            topMat = new THREE.MeshLambertMaterial({ color: 0xffffff }); bottomMat = new THREE.MeshLambertMaterial({ color: 0x000000 });
             const shoeMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
 
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), skinMat); head.position.y = 2.8; head.castShadow = true; playerGroup.add(head);
             const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 0.6), topMat); torso.position.y = 1.7; torso.castShadow = true; playerGroup.add(torso);
-            
-            const armGeo = new THREE.BoxGeometry(0.4, 1.2, 0.4);
-            const lArm = new THREE.Mesh(armGeo, skinMat); lArm.position.set(-0.8, 1.6, 0); lArm.castShadow = true;
-            const rArm = new THREE.Mesh(armGeo, skinMat); rArm.position.set(0.8, 1.6, 0); rArm.castShadow = true;
-            playerGroup.add(lArm, rArm);
+            const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), skinMat); lArm.position.set(-0.8, 1.6, 0); lArm.castShadow = true;
+            const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), skinMat); rArm.position.set(0.8, 1.6, 0); rArm.castShadow = true; playerGroup.add(lArm, rArm);
 
-            const legGeo = new THREE.BoxGeometry(0.5, 0.8, 0.5);
-            const shoeGeo = new THREE.BoxGeometry(0.55, 0.3, 0.6);
-
-            lLegPivot = new THREE.Group(); lLegPivot.position.set(-0.35, 1.0, 0);
+            const legGeo = new THREE.BoxGeometry(0.5, 0.8, 0.5); const shoeGeo = new THREE.BoxGeometry(0.55, 0.3, 0.6);
+            const lLegPivot = new THREE.Group(); lLegPivot.position.set(-0.35, 1.0, 0);
             const lLeg = new THREE.Mesh(legGeo, bottomMat); lLeg.position.y = -0.4; lLeg.castShadow = true;
-            const lShoe = new THREE.Mesh(shoeGeo, shoeMat); lShoe.position.set(0, -0.85, 0.05); lShoe.castShadow = true;
-            lLegPivot.add(lLeg, lShoe);
+            const lShoe = new THREE.Mesh(shoeGeo, shoeMat); lShoe.position.set(0, -0.85, 0.05); lShoe.castShadow = true; lLegPivot.add(lLeg, lShoe);
 
             rLegPivot = new THREE.Group(); rLegPivot.position.set(0.35, 1.0, 0); 
             const rLeg = new THREE.Mesh(legGeo, bottomMat); rLeg.position.y = -0.4; rLeg.castShadow = true;
-            const rShoe = new THREE.Mesh(shoeGeo, shoeMat); rShoe.position.set(0, -0.85, 0.05); rShoe.castShadow = true;
-            rLegPivot.add(rLeg, rShoe);
+            const rShoe = new THREE.Mesh(shoeGeo, shoeMat); rShoe.position.set(0, -0.85, 0.05); rShoe.castShadow = true; rLegPivot.add(rLeg, rShoe);
 
             playerGroup.add(lLegPivot, rLegPivot); scene.add(playerGroup);
 
+            // [코치 모델 (Lv 100 이상)]
+            coachGroup = new THREE.Group();
+            coachGroup.position.set(-2, 0, 1); // 선수 왼쪽 살짝 뒤
+            coachGroup.rotation.y = Math.PI / 6; // 선수를 비스듬히 쳐다봄
+            const suitMat = new THREE.MeshLambertMaterial({ color: 0x222222 }); // 검은 정장
+            
+            const cHead = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), skinMat); cHead.position.y = 2.8; cHead.castShadow = true; coachGroup.add(cHead);
+            const cTorso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.6), suitMat); cTorso.position.y = 1.75; cTorso.castShadow = true; coachGroup.add(cTorso);
+            const cLArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), suitMat); cLArm.position.set(-0.8, 1.6, 0); cLArm.rotation.z = 0.2; cLArm.castShadow = true;
+            const cRArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), suitMat); cRArm.position.set(0.8, 1.6, 0); cRArm.rotation.x = -0.5; cRArm.castShadow = true; // 팔짱 낀 느낌
+            coachGroup.add(cLArm, cRArm);
+            const cLegs = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 0.5), suitMat); cLegs.position.y = 0.5; cLegs.castShadow = true; coachGroup.add(cLegs);
+            
+            coachGroup.visible = false; // 기본은 숨김
+            scene.add(coachGroup);
+
+            // 공
             ball = new THREE.Mesh(new THREE.IcosahedronGeometry(0.25, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }));
             ball.position.set(0.4, 0.25, -0.8); ball.castShadow = true; scene.add(ball);
 
@@ -416,24 +436,14 @@
         function onWindowResize() {
             const container = document.getElementById('three-canvas-container');
             camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight);
         }
-
         function animate3D() { requestAnimationFrame(animate3D); renderer.render(scene, camera); }
 
-        function update3DUniform() {
-            if(topMat && bottomMat) {
-                topMat.color.setHex(parseInt(gameData.uniform.top.replace('#', '0x')));
-                bottomMat.color.setHex(parseInt(gameData.uniform.bottom.replace('#', '0x')));
-            }
-        }
-
         function triggerShootAnimation() {
-            SoundEngine.playKick(); // 슛 사운드
-            
-            gsap.killTweensOf([rLegPivot.rotation, playerGroup.rotation, ball.position, ball.rotation, playerGroup.position]);
-            rLegPivot.rotation.x = 0; playerGroup.rotation.y = 0; playerGroup.position.y = 0; ball.position.set(0.4, 0.25, -0.8);
+            SoundEngine.playKick(); 
+            gsap.killTweensOf([rLegPivot.rotation, playerGroup.rotation, ball.position, ball.rotation]);
+            rLegPivot.rotation.x = 0; playerGroup.rotation.y = 0; ball.position.set(0.4, 0.25, -0.8);
 
             gsap.to(rLegPivot.rotation, { x: -Math.PI / 2.5, duration: 0.2, ease: "power1.inOut" });
             gsap.to(playerGroup.rotation, { y: 0.2, duration: 0.2 });
@@ -443,71 +453,55 @@
             const targetX = (Math.random() - 0.5) * 6; 
             gsap.to(ball.position, { 
                 x: targetX, y: 3, z: -16, duration: 0.5, delay: 0.35, ease: "power1.out", 
-                onComplete: () => {
-                    createGoalParticles();
-                    SoundEngine.playGoal(); // 골망 노이즈 사운드
-                }
+                onComplete: () => { spawnParticles(30, '#FFFFFF'); SoundEngine.playGoalNet(); }
             });
             gsap.to(ball.rotation, { x: -Math.PI * 8, duration: 1.0, delay: 0.35 });
             gsap.to(ball.position, { y: 0.25, z: -18, duration: 0.4, delay: 0.85, ease: "bounce.out" });
 
             gsap.to([rLegPivot.rotation, playerGroup.rotation], { x: 0, y: 0, duration: 0.3, delay: 1.5 });
             gsap.to(ball.position, { x: 0.4, y: 0.25, z: -0.8, duration: 0, delay: 1.8 });
+
+            // 코치가 있으면 끄덕임 애니메이션
+            if(coachGroup.visible) {
+                gsap.to(coachGroup.position, { y: 0.2, duration: 0.2, yoyo: true, repeat: 1, delay: 0.5 });
+            }
         }
 
         function triggerVictoryAnimation() {
-            SoundEngine.playVictory(); // 우승 빰빠바밤 사운드
+            SoundEngine.playVictory();
             gsap.to(playerGroup.position, { y: 1.5, duration: 0.3, yoyo: true, repeat: 5, ease: "power1.out" });
             gsap.to(playerGroup.rotation, { y: Math.PI * 2, duration: 1.0, repeat: 1, ease: "none" });
-            createTrophyParticles();
+            spawnParticles(100, '#FFD700', true);
+            if(coachGroup.visible) {
+                gsap.to(coachGroup.position, { y: 1.5, duration: 0.3, yoyo: true, repeat: 5, ease: "power1.out", delay: 0.1 });
+            }
         }
 
-        // 2D 캔버스 이펙트
-        function createGoalParticles() { spawnParticles(30, '#FFFFFF'); }
-        function createTrophyParticles() { spawnParticles(100, '#FFD700', true); }
-
-        function spawnParticles(count, mainColor, isExplosion = false) {
-            const canvas = document.getElementById('particle-overlay');
-            const ctx = canvas.getContext('2d');
-            const container = document.getElementById('three-canvas-container');
-            canvas.width = container.clientWidth; canvas.height = container.clientHeight;
-
-            let particles = [];
-            const startX = canvas.width / 2;
-            const startY = isExplosion ? canvas.height * 0.2 : canvas.height * 0.4;
-
-            for(let i=0; i<count; i++) {
-                particles.push({
-                    x: startX, y: startY,
-                    vx: (Math.random() - 0.5) * (isExplosion ? 20 : 10),
-                    vy: (Math.random() - 0.5) * (isExplosion ? 20 : 10) - (isExplosion ? 5 : 2),
-                    life: 1.0,
-                    color: Math.random() > 0.3 ? mainColor : (isExplosion ? '#FFA500' : '#FFFFFF')
-                });
-            }
-
-            function animateParticles() {
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                let alive = false;
+        function spawnParticles(count, mainColor, isEx = false) {
+            const canvas = document.getElementById('particle-overlay'); const ctx = canvas.getContext('2d');
+            const container = document.getElementById('three-canvas-container'); canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+            let particles = []; const startX = canvas.width / 2; const startY = isEx ? canvas.height * 0.2 : canvas.height * 0.4;
+            for(let i=0; i<count; i++) particles.push({ x: startX, y: startY, vx: (Math.random() - 0.5) * (isEx?20:10), vy: (Math.random() - 0.5) * (isEx?20:10) - (isEx?5:2), life: 1.0, color: Math.random() > 0.3 ? mainColor : (isEx?'#FFA500':'#FFFFFF') });
+            function anim() {
+                ctx.clearRect(0,0,canvas.width,canvas.height); let alive = false;
                 particles.forEach(p => {
-                    if(p.life > 0) {
-                        alive = true; p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.02;
-                        ctx.globalAlpha = Math.max(0, p.life);
-                        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, isExplosion ? 6 : 4, 0, Math.PI*2); ctx.fill();
-                    }
+                    if(p.life > 0) { alive = true; p.x+=p.vx; p.y+=p.vy; p.vy+=0.5; p.life-=0.02; ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,isEx?6:4,0,Math.PI*2); ctx.fill(); }
                 });
-                if(alive) requestAnimationFrame(animateParticles);
-                else ctx.clearRect(0,0,canvas.width,canvas.height);
+                if(alive) requestAnimationFrame(anim); else ctx.clearRect(0,0,canvas.width,canvas.height);
             }
-            animateParticles();
+            anim();
         }
 
         /* =========================================
-           4. 게임 로직 (5문제 1업 & 월드컵)
+           3. 게임 코어 로직 & UI 업데이트
         ========================================= */
         function init() {
             const savedData = localStorage.getItem('soccer_save');
-            if (savedData) { gameData = { ...gameData, ...JSON.parse(savedData) }; }
+            if (savedData) { 
+                const parsed = JSON.parse(savedData);
+                gameData = { ...gameData, ...parsed };
+                gameData.records = { ...gameData.records, ...(parsed.records || {}) }; // 하위호환
+            }
             init3D();
             if (!gameData.playerName) document.getElementById('start-modal').style.display = 'flex';
             else startGame();
@@ -515,8 +509,7 @@
 
         function startGameWithInfo() {
             SoundEngine.init();
-            const nameInput = document.getElementById('input-playername');
-            const numInput = document.getElementById('input-backnumber');
+            const nameInput = document.getElementById('input-playername'); const numInput = document.getElementById('input-backnumber');
             if (!nameInput.value.trim()) { nameInput.style.borderColor = "red"; setTimeout(() => nameInput.style.borderColor = "#fff", 500); return; }
             gameData.playerName = nameInput.value.trim(); gameData.backNumber = numInput.value ? parseInt(numInput.value) : 7;
             document.getElementById('start-modal').style.display = 'none';
@@ -527,7 +520,11 @@
         function saveData() { localStorage.setItem('soccer_save', JSON.stringify(gameData)); updateUI(); }
 
         function updateUI() {
-            document.getElementById('player-custom-name').innerText = `No.${gameData.backNumber} ${gameData.playerName}`;
+            const role = getCoachRole(gameData.level);
+            const isCoach = gameData.level >= 100;
+            const prefix = isCoach ? `[${role}]` : `No.${gameData.backNumber}`;
+            
+            document.getElementById('player-custom-name').innerText = `${prefix} ${gameData.playerName}`;
             document.getElementById('level-display').innerText = gameData.level;
             document.getElementById('stat-shoot').innerText = gameData.stats.shoot;
             document.getElementById('stat-pass').innerText = gameData.stats.pass;
@@ -535,7 +532,22 @@
             document.getElementById('stat-physical').innerText = gameData.stats.physical;
             document.getElementById('league-name').innerText = gameData.leagueName;
             document.getElementById('team-name').innerText = gameData.teamName;
-            update3DUniform();
+            
+            // 기록실 업데이트
+            document.getElementById('rec-caps').innerText = gameData.records.wcCaps;
+            document.getElementById('rec-wins').innerText = gameData.records.wcWins;
+            document.getElementById('rec-goals').innerText = gameData.records.wcGoals;
+            document.getElementById('rec-assists').innerText = gameData.records.wcAssists;
+            document.getElementById('role-badge').innerText = `현재 상태: ${role}`;
+            document.getElementById('role-badge').style.background = isCoach ? '#800000' : '#000080';
+
+            // 3D 업데이트
+            if(topMat && bottomMat) {
+                topMat.color.setHex(parseInt(gameData.uniform.top.replace('#', '0x')));
+                bottomMat.color.setHex(parseInt(gameData.uniform.bottom.replace('#', '0x')));
+            }
+            if(coachGroup) coachGroup.visible = isCoach;
+
             const expPercent = Math.min(100, (gameData.exp / 5) * 100);
             document.getElementById('exp-bar').style.width = expPercent + '%';
         }
@@ -547,40 +559,70 @@
 
         document.getElementById('answer-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                SoundEngine.init(); // 보험용 초기화
-                if (parseInt(this.value) === currentQuiz.answer) {
-                    successAction();
-                } else { 
-                    SoundEngine.playWrong(); // 오답 사운드
-                    this.style.background = "#D32F2F"; 
-                    setTimeout(() => this.style.background = "#fff", 200); 
-                }
+                SoundEngine.init();
+                if (parseInt(this.value) === currentQuiz.answer) successAction();
+                else { SoundEngine.playWrong(); this.style.background = "#D32F2F"; setTimeout(() => this.style.background = "#fff", 200); }
                 this.value = ''; 
             }
         });
 
-        function successAction() {
-            triggerShootAnimation();
-            gameData.exp += 1;
-            checkLevelUp();
-            generateQuiz();
-            saveData();
-        }
+        function successAction() { triggerShootAnimation(); gameData.exp += 1; checkLevelUp(); generateQuiz(); saveData(); }
 
+        /* 레벨업 및 리그 루프 로직 */
         function checkLevelUp() {
             if (gameData.exp >= 5) {
                 gameData.exp -= 5; gameData.level++; gameData.statPoints++;
+                SoundEngine.playLevelUp();
                 
-                if (leagueData[gameData.level]) showLeagueModal(gameData.level);
-                else if (gameData.level >= 55 && gameData.level % 5 === 0) showWorldCupModal();
-                else {
-                    SoundEngine.playLevelUp(); // 레벨업 사운드
+                const lvl = gameData.level;
+                
+                // 100, 110, 120, 130, 140 진입 시 역할 안내
+                if ([100, 110, 120, 130, 140].includes(lvl)) {
+                    let msg = "";
+                    if(lvl === 100) msg = "선수 은퇴 후 피지컬 트레이너로 지도자 생활을 시작합니다!";
+                    else if(lvl === 110) msg = "슈팅 코치로 승격했습니다! 공격수들을 지휘하세요.";
+                    else if(lvl === 120) msg = "전술 코치로 임명되었습니다! 팀의 두뇌가 되십시오.";
+                    else if(lvl === 130) msg = "수석 코치가 되었습니다! 감독을 보좌하여 팀을 이끕니다.";
+                    else if(lvl === 140) msg = "드디어 정식 감독 데뷔! 직접 팀을 선택하고 세계를 제패하세요!";
+                    document.getElementById('role-message').innerText = msg;
+                    document.getElementById('role-modal').style.display = 'flex';
+                    return; // 모달 닫힐 때 다음 스텝 체크
+                }
+
+                // 리그 진입 매핑 로직
+                let targetLeagueIndex = null;
+                let isManagerLoop = false;
+
+                if (lvl < 100 && baseLeagueData[lvl]) {
+                    targetLeagueIndex = lvl;
+                } else if (lvl >= 140) {
+                    // 감독 모드 루프: 140, 145, 150... (5, 10, 15 레벨 매핑)
+                    const cycle = lvl - 140;
+                    if (cycle % 5 === 0) {
+                        targetLeagueIndex = (cycle % 45) + 5; // 5~45 순환
+                        isManagerLoop = true;
+                    }
+                }
+
+                if (targetLeagueIndex !== null) {
+                    showLeagueModal(targetLeagueIndex, isManagerLoop);
+                } else if (lvl >= 55 && lvl < 100 && lvl % 5 === 0) {
+                    showWorldCupModal();
+                } else {
                     showStatModal();
                 }
             }
         }
 
         function checkPendingModals() { if (gameData.statPoints > 0) showStatModal(); }
+
+        function closeRoleModal() {
+            document.getElementById('role-modal').style.display = 'none';
+            saveData();
+            // 140렙 감독 부임 즉시 리그 선택창 띄우기
+            if(gameData.level === 140) showLeagueModal(5, true); 
+            else showStatModal();
+        }
 
         function showStatModal() {
             document.getElementById('stat-points-display').innerText = gameData.statPoints;
@@ -591,31 +633,29 @@
             if (gameData.statPoints > 0) {
                 gameData.stats[statName]++; gameData.statPoints--; saveData();
                 document.getElementById('stat-points-display').innerText = gameData.statPoints;
-                if (gameData.statPoints <= 0) {
-                    document.getElementById('stat-modal').style.display = 'none';
-                    document.getElementById('answer-input').focus();
-                }
+                if (gameData.statPoints <= 0) { document.getElementById('stat-modal').style.display = 'none'; document.getElementById('answer-input').focus(); }
             }
         }
 
-        function showLeagueModal(level) {
-            SoundEngine.playLevelUp();
-            const data = leagueData[level];
-            document.getElementById('league-modal-title').innerText = `${data.name} 진출!`;
+        function showLeagueModal(index, isManager = false) {
+            const data = baseLeagueData[index];
+            document.getElementById('league-modal-title').innerText = isManager ? `${data.name} 감독 부임!` : `${data.name} 진출!`;
+            document.getElementById('league-modal-desc').innerText = isManager ? "지휘할 팀을 선택하십시오." : "새로운 팀과 계약하십시오.";
+            
             const group = document.getElementById('team-selection-group'); group.innerHTML = ''; 
             data.teams.forEach(team => {
                 const btn = document.createElement('button'); btn.className = 'btn'; btn.style.borderLeft = `8px solid ${team.top}`;
-                btn.innerText = team.name; btn.onclick = () => selectTeam(data.name, team); group.appendChild(btn);
+                btn.innerText = team.name; btn.onclick = () => selectTeam(data.name, team, isManager); group.appendChild(btn);
             });
             document.getElementById('league-modal').style.display = 'flex';
         }
 
-        function selectTeam(leagueName, team) {
+        function selectTeam(leagueName, team, isManager) {
             gameData.leagueName = leagueName; gameData.teamName = team.name; gameData.uniform = { top: team.top, bottom: team.bottom }; 
             document.getElementById('league-modal').style.display = 'none';
             saveData(); 
             
-            if (team.event) {
+            if (team.event && !isManager) { // 감독일 때는 멘토링 이벤트 패스 (본인이 가르침)
                 gameData.stats[team.event.stat] += team.event.amt;
                 document.getElementById('event-message').innerText = team.event.msg;
                 document.getElementById('event-reward').innerText = `보상: ${team.event.stat.toUpperCase()} +${team.event.amt}`;
@@ -625,53 +665,108 @@
             }
         }
 
-        function closeEventModal() {
-            document.getElementById('event-modal').style.display = 'none';
-            saveData(); showStatModal();
-        }
+        function closeEventModal() { document.getElementById('event-modal').style.display = 'none'; saveData(); showStatModal(); }
 
-        /* 월드컵 시스템 */
+        /* =========================================
+           4. 월드컵 텍스트 중계 시스템
+        ========================================= */
+        let wcState = {};
+
         function showWorldCupModal() {
-            SoundEngine.playLevelUp();
+            SoundEngine.playWhistle();
             document.getElementById('worldcup-start-modal').style.display = 'flex';
         }
 
-        function playWorldCup(position) {
+        function startWorldCupSimulation(position) {
             document.getElementById('worldcup-start-modal').style.display = 'none';
-            const s = gameData.stats;
-            const total = s.shoot + s.pass + s.speed + s.physical;
+            const nations = ["브라질", "프랑스", "아르헨티나", "잉글랜드", "스페인", "독일", "포르투갈", "이탈리아"];
+            const semiOpponent = nations.splice(Math.floor(Math.random()*nations.length), 1)[0];
+            const finalOpponent = nations.splice(Math.floor(Math.random()*nations.length), 1)[0];
+
+            const s = gameData.stats; const total = s.shoot + s.pass + s.speed + s.physical;
             let bonus = 0;
-            
             if (position === 'FW') bonus = (s.shoot + s.speed) * 1.5;
             else if (position === 'MF') bonus = (s.pass + s.physical) * 1.5;
             else if (position === 'DF') bonus = (s.physical + s.speed) * 1.5;
 
             const score = total + bonus + (Math.random() * 40);
-            let resultText = ""; let isWinner = false;
-            
-            if (score > 180) { resultText = "기적의 월드컵 우승!!! 🏆\n세계를 평정했습니다!"; isWinner = true; } 
-            else if (score > 140) { resultText = "아쉬운 월드컵 준우승 🥈\n하지만 값진 결과입니다!"; } 
-            else if (score > 100) { resultText = "월드컵 4강 진출! ⚽\n국민들의 박수를 받습니다."; } 
-            else { resultText = "조별리그 탈락...\n더욱 강해져서 돌아옵시다."; }
+            const isSemiWin = score > 120;
+            const isFinalWin = score > 180;
 
-            document.getElementById('wc-result-desc').innerText = resultText;
-            const emojiEl = document.getElementById('wc-trophy-emoji');
+            gameData.records.wcCaps++;
+
+            // 대본 작성
+            let script = [];
+            script.push(`🌍 월드컵 준결승전! 상대는 강호 <span class="comment-highlight">[${semiOpponent}]</span>!`);
             
-            if (isWinner) {
-                emojiEl.style.display = 'block';
-                triggerVictoryAnimation(); 
+            if (!isSemiWin) {
+                script.push(`치열한 공방전 끝에 <span class="comment-fail">패배</span>합니다...`);
+                script.push(`최종 성적: 4강 탈락. 국민들의 박수를 받으며 귀국합니다.`);
+                wcState.goals = (position === 'FW') ? 2 : (position === 'MF' ? 1 : 0);
+                wcState.assists = (position === 'MF') ? 2 : (position === 'FW' ? 1 : 0);
+                wcState.isChamp = false;
             } else {
-                emojiEl.style.display = 'none';
+                script.push(`<span class="comment-highlight">[${semiOpponent}]</span> 격파! 대망의 결승전 진출!!`);
+                script.push(`---------------------------------`);
+                script.push(`🏆 결승전 상대는 우승 후보 <span class="comment-highlight">[${finalOpponent}]</span>!`);
+                script.push(`삑! 결승전 휘슬이 울립니다.`);
+                script.push(`경기 종료 직전, <span class="comment-highlight">${gameData.playerName}</span> 선수가 볼을 잡습니다!`);
+                script.push(`수비수 2명을 제치고 화려한 드리블 돌파!`);
+                script.push(`골키퍼와 1대1 상황... 강력한 슛!!!!!`);
+
+                if (!isFinalWin) {
+                    script.push(`<span class="comment-fail">앗... 골대를 강타합니다.</span>`);
+                    script.push(`<span class="comment-highlight">[${finalOpponent}]</span>의 역습에 당해 패배. 아쉬운 준우승 🥈`);
+                    wcState.goals = (position === 'FW') ? 4 : (position === 'MF' ? 2 : 1);
+                    wcState.assists = (position === 'MF') ? 4 : (position === 'FW' ? 2 : 1);
+                    wcState.isChamp = false;
+                } else {
+                    script.push(`<span class="comment-goal">골인!!!!!!!!! 기적의 결승골!!!!</span>`);
+                    script.push(`<span class="comment-highlight">[${finalOpponent}]</span>을 꺾고 월드컵 우승 🏆!!!`);
+                    wcState.goals = (position === 'FW') ? 6 : (position === 'MF' ? 3 : 1);
+                    wcState.assists = (position === 'MF') ? 5 : (position === 'FW' ? 3 : 2);
+                    wcState.isChamp = true;
+                }
             }
-            document.getElementById('worldcup-result-modal').style.display = 'flex';
+
+            // 중계창 열기
+            const commBox = document.getElementById('commentary-box');
+            commBox.innerHTML = '';
+            document.getElementById('commentary-close-btn').style.display = 'none';
+            document.getElementById('worldcup-commentary-modal').style.display = 'flex';
+
+            // 텍스트 한 줄씩 출력 (애니메이션)
+            let i = 0;
+            let interval = setInterval(() => {
+                if (i < script.length) {
+                    const p = document.createElement('div');
+                    p.className = 'comment-line';
+                    p.innerHTML = script[i];
+                    commBox.appendChild(p);
+                    commBox.scrollTop = commBox.scrollHeight;
+                    if(script[i].includes('골인')) SoundEngine.playGoalNet();
+                    if(script[i].includes('삑')) SoundEngine.playWhistle();
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    document.getElementById('commentary-close-btn').style.display = 'block';
+                    if (wcState.isChamp) triggerVictoryAnimation();
+                }
+            }, 1200); // 1.2초 간격 중계
         }
 
         function closeWorldCupResult() {
-            document.getElementById('worldcup-result-modal').style.display = 'none';
+            // 기록 적용
+            gameData.records.wcGoals += wcState.goals;
+            gameData.records.wcAssists += wcState.assists;
+            if (wcState.isChamp) gameData.records.wcWins++;
+            
+            document.getElementById('worldcup-commentary-modal').style.display = 'none';
+            saveData();
             showStatModal();
         }
 
-        /* 치트 및 관리 */
+        /* 디버그 & 초기화 */
         function handleLevelClick() {
             cheatClickCount++; if (cheatClickTimer) clearTimeout(cheatClickTimer);
             cheatClickTimer = setTimeout(() => cheatClickCount = 0, 2000);
@@ -688,10 +783,8 @@
                 if (parsedLevel > gameData.level) gameData.statPoints += (parsedLevel - gameData.level);
                 gameData.level = parsedLevel; gameData.exp = 0; saveData(); closeCheatModal();
                 
-                if (leagueData[gameData.level]) showLeagueModal(gameData.level);
-                else if (gameData.level >= 55 && gameData.level % 5 === 0) showWorldCupModal();
-                else if (gameData.statPoints > 0) showStatModal();
-                else updateUI();
+                checkLevelUp(); // 치트키 후에도 동일한 사이클을 타도록 수정
+                updateUI();
             }
         }
 
@@ -704,5 +797,3 @@
     </script>
 </body>
 </html>
-
-
